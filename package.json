@@ -1,0 +1,12 @@
+{
+  "scripts": {
+    "start": "concurrently \"pulp --watch build --to ./output/app.js\" \"parcel src/index.html\"",
+    "dev": "concurrently \"spago build --watch\" \"parcel index.html\""
+  },
+  "dependencies": {
+  },
+  "devDependencies": {
+    "concurrently": "^7.5.0",
+    "parcel-bundler": "^1.12.5"
+  }
+}
