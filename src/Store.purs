@@ -11,6 +11,8 @@ import Api.Request (BaseURL)
 import Network.RemoteData (RemoteData)
 import Network.RemoteData (RemoteData(..))
 import Halogen.Store.Select (select)
+import Data.Array (updateAt)
+import Data.Array (findIndex)
 
 type Store =
     { baseUrl :: BaseURL
@@ -19,14 +21,25 @@ type Store =
     }
 
 data Action = SetMoneyItems (RemoteData String (Array MoneyItemWithId))
-    | SetCurrencies (RemoteData String (Array Currency)) -- add updates, removals
+    | SetCurrencies (RemoteData String (Array Currency)) -- add removals
     | UpdateMoneyItem (MoneyItemWithId)
+
+getMbUpdatedArr arr item = do
+    ind <- findIndex (\item2 -> item2.id == item.id) arr
+    updateAt ind item arr
+
+updateArr arr item = case mbUpdatedArr of
+    Just updatedArr -> updatedArr
+    _ -> arr
+    where mbUpdatedArr = getMbUpdatedArr arr item
 
 reduce :: Store -> Action -> Store
 reduce store = case _ of
     SetMoneyItems items -> store { moneyItems = items }
     SetCurrencies items -> store { currencies = items }
-    UpdateMoneyItem item -> store
+    UpdateMoneyItem item -> case store.moneyItems of
+        Success arr -> store { moneyItems = Success $ updateArr arr item }
+        _ -> store
 
 isInitialized :: Store -> Boolean
 isInitialized { moneyItems: Success _, currencies: Success _ } = true
