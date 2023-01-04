@@ -10,7 +10,7 @@ import Data.Maybe (Maybe(..))
 import Halogen.Store.Connect (Connected)
 import Halogen.Store.Connect (connect)
 import Store (selectIsInitialized, Action, Store)
-import Capability.MoneyItem (getMoneyItems, updateMoneyItem)
+import Capability.MoneyItem (getMoneyItems, updateMoneyItem, deleteMoneyItem)
 import Capability.Currency (getCurrencies)
 import Data.MoneyItem (MoneyItem)
 import AppM (AppM)
@@ -50,7 +50,7 @@ import Data.Array (mapWithIndex)
 data WAction
     = Initialize
     | Receive (Connected (RemoteData String (Array MoneyItemWithId)) Unit)
-    | HandleMoneyItemUpdate { data :: MoneyItem.Output, id :: Int }
+    | HandleMoneyItemOutput { data :: MoneyItem.Output, id :: Int }
 
 type State =
     { isCreating :: Boolean
@@ -87,12 +87,16 @@ app = connect selectMoneyItems $ H.mkComponent
             updateStore $ SetCurrencies $ fromMaybe currencies
        Receive { context: moneyItems } -> do
             H.modify_ _ { moneyItems = moneyItems }
-       HandleMoneyItemUpdate { data: MoneyItem.ConfirmedUpdate item, id } -> do
-            --send request, if successful update element in array, else raise notification
+       HandleMoneyItemOutput { data: MoneyItem.ConfirmedUpdate item, id } -> do
             let newItem = { id, name: item.name, currencyId: item.currencyId, amount: item.amount }
             result <- updateMoneyItem newItem
             updateStore $ UpdateMoneyItem newItem -- todo add failure handling
             pure unit
+       HandleMoneyItemOutput { data: MoneyItem.ClickedDelete, id } -> do
+                   --send request, if successful remove element from array, else raise notification
+                   result <- deleteMoneyItem id
+                   updateStore $ DeleteMoneyItem id -- todo add failure handling
+                   pure unit
        _ -> do
             pure unit
 
@@ -105,7 +109,7 @@ app = connect selectMoneyItems $ H.mkComponent
             --renderMoneyItem item = HH.slot _moneyItem item.id MoneyItem.moneyItem item HandleMoneyItemUpdate
             renderMoneyItem item = HH.slot _moneyItem item.id MoneyItem.moneyItem
                 { name: item.name, currencyId: item.currencyId, amount: item.amount }
-                (\outputData -> HandleMoneyItemUpdate { data: outputData, id: item.id })
+                (\outputData -> HandleMoneyItemOutput { data: outputData, id: item.id })
             renderMoneyItems :: RemoteData String (Array MoneyItemWithId) -> _
             renderMoneyItems = case _ of
                 Success arr -> HH.div_ $ map renderMoneyItem arr

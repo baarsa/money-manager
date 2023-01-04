@@ -40,7 +40,7 @@ type Input = { name :: String
                      , currencyId :: Int
                      , amount :: Int }
 
-data Output = ConfirmedUpdate Input
+data Output = ConfirmedUpdate Input | ClickedDelete
 
 type State = {
     item :: Input,
@@ -57,6 +57,7 @@ data Action = SetLocation String
     | HandleNameInput StringInput.Output
     | HandleCurrencyOutput CurrencyControl.Output
     | HandleNumberInput NumberInput.Output
+    | HandleDeleteButton Button.Output
 
 type Slots =
     ( stringInput :: forall q. H.Slot q StringInput.Output Int
@@ -94,6 +95,8 @@ moneyItem =
             H.raise $ ConfirmedUpdate currentItem
             -- if success do nothing else show fail notification (later)
             H.modify_ _ { mode = View }
+        HandleDeleteButton _ -> do
+            H.raise ClickedDelete
         HandleNameInput (StringInput.ValueUpdated newNameValue) -> do
             H.modify_ (\s -> s { item = s.item { name = newNameValue } })
         HandleCurrencyOutput (CurrencyControl.ChangedCurrency newCurId) -> do
@@ -110,11 +113,13 @@ moneyItem =
          , amount
          , HH.slot _currencyControl 0 CurrencyControl.currencyControl { mode, currencyId: item.currencyId } HandleCurrencyOutput
          , button
+         , deleteButton
          ]
         where
             button = case mode of
                 View -> HH.slot _button 0 Button.button { text: "Edit" } HandleEditButton
                 _ -> HH.slot _button 1 Button.button { text: "Confirm" } HandleConfirmButton
+            deleteButton = HH.slot _button 2 Button.button { text: "Delete" } HandleDeleteButton
             name = case mode of
                 View -> HH.text item.name
                 _ -> HH.slot _stringInput 0 StringInput.stringInput item.name HandleNameInput
