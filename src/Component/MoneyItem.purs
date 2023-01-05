@@ -14,9 +14,6 @@ import Control.Monad.Rec.Class (forever)
 import Effect.Aff (delay)
 import Data.Time.Duration (Milliseconds(..))
 import Effect.Aff as Aff
-import Effect.Console (log)
-import Effect.Random (random)
-import Effect.Random (randomInt)
 import Data.Int (fromString)
 import Data.MoneyItem (MoneyItem)
 import Data.Currency (Currency)
@@ -32,6 +29,9 @@ import ComponentMode
 import Store as Store
 import Halogen.Store.Monad (class MonadStore)
 import Prim.Row
+import HTML.Utils (whenElem)
+import Component.EditMoneyItem as EditMoneyItem
+import Component.EditMoneyItem
 
 -- state: item data without id; mode: view | edit;
 -- output: on save (moneyItem), on delete ()
@@ -47,32 +47,23 @@ type State = {
     mode :: ComponentMode
 }
 
-data Action = SetLocation String
-    | SetCurrency Currency
-    | SetAmount Int
-    | Initialize
+data Action = Initialize
     | Receive Input
     | HandleEditButton Button.Output
     | HandleConfirmButton Button.Output
-    | HandleNameInput StringInput.Output
-    | HandleCurrencyOutput CurrencyControl.Output
-    | HandleNumberInput NumberInput.Output
     | HandleDeleteButton Button.Output
+    | HandleEditMoneyItemInput EditMoneyItem.Output
+    | NoAction CurrencyControl.Output -- try to do polymorphic
 
 type Slots =
-    ( stringInput :: forall q. H.Slot q StringInput.Output Int
-    , button :: forall q. H.Slot q Button.Output Int
+    ( editMoneyItem :: forall q. H.Slot q EditMoneyItem.Output Int
     , currencyControl :: forall q. H.Slot q CurrencyControl.Output Int
-    , numberInput :: forall q. H.Slot q NumberInput.Output Int
+    , button :: forall q. H.Slot q Button.Output Int
     )
 
 _button = Proxy :: Proxy "button"
 
-_stringInput = Proxy :: Proxy "stringInput"
-
-_currencyControl = Proxy :: Proxy "currencyControl"
-
-_numberInput = Proxy :: Proxy "numberInput"
+_editMoneyItem = Proxy :: Proxy "editMoneyItem"
 
 moneyItem :: forall q m. MonadStore Store.Action Store.Store m => H.Component q Input Output m
 moneyItem =
@@ -97,21 +88,16 @@ moneyItem =
             H.modify_ _ { mode = View }
         HandleDeleteButton _ -> do
             H.raise ClickedDelete
-        HandleNameInput (StringInput.ValueUpdated newNameValue) -> do
-            H.modify_ (\s -> s { item = s.item { name = newNameValue } })
-        HandleCurrencyOutput (CurrencyControl.ChangedCurrency newCurId) -> do
-            H.modify_ (\s -> s { item = s.item { currencyId = newCurId } })
-        HandleNumberInput (NumberInput.ChangedValue newAmount) -> do
-            H.modify_ (\s -> s { item = s.item { amount = newAmount } })
+        HandleEditMoneyItemInput (UpdatedState item) -> do
+            H.modify_ _ { item = item }
         _ -> do
             pure unit
     render :: State -> H.ComponentHTML Action Slots m
     render { item, mode } =
         HH.div
          []
-         [ name
-         , amount
-         , HH.slot _currencyControl 0 CurrencyControl.currencyControl { mode, currencyId: item.currencyId } HandleCurrencyOutput
+         [ whenElem (mode == View) viewMoneyItem
+         , whenElem (mode == Edit) editMoneyItem
          , button
          , deleteButton
          ]
@@ -120,9 +106,10 @@ moneyItem =
                 View -> HH.slot _button 0 Button.button { text: "Edit" } HandleEditButton
                 _ -> HH.slot _button 1 Button.button { text: "Confirm" } HandleConfirmButton
             deleteButton = HH.slot _button 2 Button.button { text: "Delete" } HandleDeleteButton
-            name = case mode of
-                View -> HH.text item.name
-                _ -> HH.slot _stringInput 0 StringInput.stringInput item.name HandleNameInput
-            amount = case mode of
-                 View -> HH.text $ toStringAs decimal item.amount
-                 _ -> HH.slot _numberInput 0 NumberInput.numberInput { value: item.amount } HandleNumberInput
+            viewMoneyItem _ = HH.div
+                []
+                [ HH.text item.name
+                , HH.text $ toStringAs decimal item.amount
+                , HH.slot _currencyControl 0 CurrencyControl.currencyControl { mode: View, currencyId: item.currencyId  } NoAction ]
+            editMoneyItem _ = HH.slot _editMoneyItem 0 EditMoneyItem.editMoneyItem
+             { name: item.name, currencyId: item.currencyId, amount: item.amount } HandleEditMoneyItemInput

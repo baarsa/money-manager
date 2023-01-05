@@ -30,7 +30,9 @@ import Effect.Class (class MonadEffect, liftEffect)
 import Type.Proxy (Proxy)
 import Type.Proxy (Proxy(..))
 import Component.MoneyItem as MoneyItem
+import Component.Button as Button
 import Data.Array (mapWithIndex)
+import HTML.Utils (whenElem)
 
 -- core component
 -- here we have: list of money items, total amount and "move" modal,
@@ -51,6 +53,8 @@ data WAction
     = Initialize
     | Receive (Connected (RemoteData String (Array MoneyItemWithId)) Unit)
     | HandleMoneyItemOutput { data :: MoneyItem.Output, id :: Int }
+    | HandleNewItemOutput { data :: MoneyItem.Output }
+    | HandleAddNewButtonOutput Button.Output
 
 type State =
     { isCreating :: Boolean
@@ -58,9 +62,14 @@ type State =
     , moneyItems :: RemoteData String (Array MoneyItemWithId)
     }
 
-type Slots = ( moneyItem :: forall query. H.Slot query MoneyItem.Output Int )
+type Slots =
+    ( moneyItem :: forall query. H.Slot query MoneyItem.Output Int
+    , button :: forall query. H.Slot query Button.Output Int
+    )
 
 _moneyItem = Proxy :: Proxy "moneyItem"
+
+_button = Proxy :: Proxy "button"
 
 app :: forall q o m. MonadStore Action Store m => ManageMoneyItems m => ManageCurrencies m => MonadEffect m => H.Component q Unit o m
 app = connect selectMoneyItems $ H.mkComponent
@@ -93,20 +102,24 @@ app = connect selectMoneyItems $ H.mkComponent
             updateStore $ UpdateMoneyItem newItem -- todo add failure handling
             pure unit
        HandleMoneyItemOutput { data: MoneyItem.ClickedDelete, id } -> do
-                   --send request, if successful remove element from array, else raise notification
-                   result <- deleteMoneyItem id
-                   updateStore $ DeleteMoneyItem id -- todo add failure handling
-                   pure unit
+            --send request, if successful remove element from array, else raise notification
+            result <- deleteMoneyItem id
+            updateStore $ DeleteMoneyItem id -- todo add failure handling
+            pure unit
+       HandleAddNewButtonOutput _ -> do
+            H.modify_ _ { isCreating = true }
        _ -> do
             pure unit
 
     render :: State -> H.ComponentHTML WAction Slots m
     render { isCreating, isInitialized, moneyItems } =
-        HH.div [] [ renderMoneyItems moneyItems ]
+        HH.div []
+            [ renderMoneyItems moneyItems
+            , whenElem isCreating newItem
+            , whenElem (not isCreating) addNewButton
+            ]
         where
-            mbMoneyItems = preview _Success moneyItems
             renderMoneyItem :: MoneyItemWithId -> _
-            --renderMoneyItem item = HH.slot _moneyItem item.id MoneyItem.moneyItem item HandleMoneyItemUpdate
             renderMoneyItem item = HH.slot _moneyItem item.id MoneyItem.moneyItem
                 { name: item.name, currencyId: item.currencyId, amount: item.amount }
                 (\outputData -> HandleMoneyItemOutput { data: outputData, id: item.id })
@@ -114,3 +127,7 @@ app = connect selectMoneyItems $ H.mkComponent
             renderMoneyItems = case _ of
                 Success arr -> HH.div_ $ map renderMoneyItem arr
                 _ -> HH.text "nothing"
+            newItem _ = HH.slot _moneyItem 0 MoneyItem.moneyItem
+                            { name: "", currencyId: 0, amount: 0 }-- select initial currency or empty?
+                            (\outputData -> HandleNewItemOutput { data: outputData })
+            addNewButton _ = HH.slot _button 0 Button.button { text: "Add new" } HandleAddNewButtonOutput
