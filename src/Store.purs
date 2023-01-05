@@ -14,6 +14,7 @@ import Halogen.Store.Select (select)
 import Data.Array (updateAt)
 import Data.Array (findIndex)
 import Data.Array (deleteAt)
+import Data.Array
 
 type Store =
     { baseUrl :: BaseURL
@@ -22,9 +23,10 @@ type Store =
     }
 
 data Action = SetMoneyItems (RemoteData String (Array MoneyItemWithId))
-    | SetCurrencies (RemoteData String (Array Currency)) -- add removals
+    | SetCurrencies (RemoteData String (Array Currency))
     | UpdateMoneyItem (MoneyItemWithId)
     | DeleteMoneyItem Int
+    | AddMoneyItem MoneyItemWithId
 
 getMbUpdatedArr arr item = do
     ind <- findIndex (\item2 -> item2.id == item.id) arr
@@ -51,6 +53,11 @@ reduce store = case _ of
             deleteResult = do
                 ind <- findIndex (\item -> item.id == id) arr
                 deleteAt ind arr
+        _ -> store
+    AddMoneyItem item -> case store.moneyItems of
+        Success arr -> store { moneyItems = Success $ nextArr }
+            where
+            nextArr = snoc arr item
         _ -> store
 
 isInitialized :: Store -> Boolean

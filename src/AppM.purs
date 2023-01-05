@@ -44,7 +44,7 @@ instance ManageMoneyItems AppM where
     createMoneyItem moneyItem = do
         let
             codec = CAR.object "MoneyItem" { moneyItem: moneyItemCodec }
-            method = Post $ Just $ Codec.encode codec { moneyItem }
+            method = Put $ Just $ Codec.encode codec { moneyItem }
         mbJson <- mkRequest { endpoint: MoneyItems, method }
         map (map _.moneyItem)
             $ decode (CAR.object "MoneyItem" { moneyItem: moneyItemWithIdCodec }) mbJson

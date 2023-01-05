@@ -10,7 +10,7 @@ import Data.Maybe (Maybe(..))
 import Halogen.Store.Connect (Connected)
 import Halogen.Store.Connect (connect)
 import Store (selectIsInitialized, Action, Store)
-import Capability.MoneyItem (getMoneyItems, updateMoneyItem, deleteMoneyItem)
+import Capability.MoneyItem (getMoneyItems, updateMoneyItem, deleteMoneyItem, createMoneyItem)
 import Capability.Currency (getCurrencies)
 import Data.MoneyItem (MoneyItem)
 import AppM (AppM)
@@ -30,9 +30,11 @@ import Effect.Class (class MonadEffect, liftEffect)
 import Type.Proxy (Proxy)
 import Type.Proxy (Proxy(..))
 import Component.MoneyItem as MoneyItem
+import Component.CreateMoneyItem as CreateMoneyItem
 import Component.Button as Button
 import Data.Array (mapWithIndex)
 import HTML.Utils (whenElem)
+import Store as Store
 
 -- core component
 -- here we have: list of money items, total amount and "move" modal,
@@ -53,7 +55,7 @@ data WAction
     = Initialize
     | Receive (Connected (RemoteData String (Array MoneyItemWithId)) Unit)
     | HandleMoneyItemOutput { data :: MoneyItem.Output, id :: Int }
-    | HandleNewItemOutput { data :: MoneyItem.Output }
+    | HandleNewItemOutput CreateMoneyItem.Output
     | HandleAddNewButtonOutput Button.Output
 
 type State =
@@ -65,13 +67,16 @@ type State =
 type Slots =
     ( moneyItem :: forall query. H.Slot query MoneyItem.Output Int
     , button :: forall query. H.Slot query Button.Output Int
+    , createItem :: forall query. H.Slot query CreateMoneyItem.Output Int
     )
 
 _moneyItem = Proxy :: Proxy "moneyItem"
 
+_createItem = Proxy :: Proxy "createItem"
+
 _button = Proxy :: Proxy "button"
 
-app :: forall q o m. MonadStore Action Store m => ManageMoneyItems m => ManageCurrencies m => MonadEffect m => H.Component q Unit o m
+app :: forall q o m. MonadStore Store.Action Store.Store m => ManageMoneyItems m => ManageCurrencies m => MonadEffect m => H.Component q Unit o m
 app = connect selectMoneyItems $ H.mkComponent
     { initialState
     , render
@@ -108,6 +113,14 @@ app = connect selectMoneyItems $ H.mkComponent
             pure unit
        HandleAddNewButtonOutput _ -> do
             H.modify_ _ { isCreating = true }
+       HandleNewItemOutput output -> case output of
+            CreateMoneyItem.Cancelled -> H.modify_ _ { isCreating = false }
+            CreateMoneyItem.Confirmed state -> do
+                result <- createMoneyItem state
+                case result of
+                    Just newItem -> updateStore $ AddMoneyItem newItem
+                    _ -> pure unit -- show error
+                H.modify_ _ { isCreating = false }
        _ -> do
             pure unit
 
@@ -127,7 +140,5 @@ app = connect selectMoneyItems $ H.mkComponent
             renderMoneyItems = case _ of
                 Success arr -> HH.div_ $ map renderMoneyItem arr
                 _ -> HH.text "nothing"
-            newItem _ = HH.slot _moneyItem 0 MoneyItem.moneyItem
-                            { name: "", currencyId: 0, amount: 0 }-- select initial currency or empty?
-                            (\outputData -> HandleNewItemOutput { data: outputData })
+            newItem _ = HH.slot _createItem 0 CreateMoneyItem.createMoneyItem unit HandleNewItemOutput
             addNewButton _ = HH.slot _button 0 Button.button { text: "Add new" } HandleAddNewButtonOutput

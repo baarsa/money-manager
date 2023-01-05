@@ -69,22 +69,23 @@ currencyControl =
                     Nothing -> pure unit
             _ -> pure unit
         render :: forall slots. State -> H.ComponentHTML Action slots m
+        -- TODO implement invalid states and no selection
         render { mode, item, availableCurrencies } =
-            case item of -- think of refactoring nested case expressions
-                Nothing -> HH.text ""
-                Just cur ->
-                    case mode of
-                        View -> viewCurrency cur
-                        Edit -> selectCurrency cur
+            case mode of
+                View -> viewCurrency item
+                Edit -> selectCurrency item
             where
-            viewCurrency cur = HH.div [ HP.title cur.name ] [ HH.text $ fromCharArray [cur.symbol] ]
-            selectCurrency cur = HH.select
-                -- add selected attr
+            viewCurrency mbCur = case mbCur of
+                Just cur -> HH.div [ HP.title cur.name ] [ HH.text $ fromCharArray [cur.symbol] ]
+                _ -> HH.text ""
+            selectCurrency mbCur = HH.select
                 [ HE.onSelectedIndexChange (\ind -> ChangeCurrency (map _.id (index availableCurrencies ind) ) ) ] --rewrite
                 (map (\cur2 -> HH.option
                     [ HP.value $ toStringAs decimal cur2.id
-                    , HP.selected $ cur.id == cur2.id ] [ HH.text cur2.name ]) availableCurrencies)
-             -- renderOptions implement (need copy currencies into state)
+                    , HP.selected $ sameCurrency mbCur cur2 ] [ HH.text cur2.name ]) availableCurrencies)
+        sameCurrency mbCur cur = case mbCur of
+            Just cur2 -> cur2.id == cur.id
+            _ -> false
         getCurrencyById :: RemoteData String (Array Currency) -> Int -> Maybe Currency
         getCurrencyById rd id =
             case rd of
