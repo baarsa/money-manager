@@ -32,6 +32,7 @@ import Type.Proxy (Proxy(..))
 import Component.MoneyItem as MoneyItem
 import Component.CreateMoneyItem as CreateMoneyItem
 import Component.Button as Button
+import Component.Modal as Modal
 import Data.Array (mapWithIndex)
 import HTML.Utils (whenElem)
 import Store as Store
@@ -54,20 +55,26 @@ import Store as Store
 data WAction
     = Initialize
     | Receive (Connected (RemoteData String (Array MoneyItemWithId)) Unit)
-    | HandleMoneyItemOutput { data :: MoneyItem.Output, id :: Int }
+    | HandleMoneyItemUpdate { item :: MoneyItem.Input, id :: Int }
     | HandleNewItemOutput CreateMoneyItem.Output
     | HandleAddNewButtonOutput Button.Output
+    | ShowConfirmDeleteModal Int
+    | HandleDeleteModalClose Modal.Output Int
+
+data ConfirmDeleteModalState = Hidden | Visible Int -- id of the item to delete on confirm
 
 type State =
     { isCreating :: Boolean
     , isInitialized :: Boolean
     , moneyItems :: RemoteData String (Array MoneyItemWithId)
+    , confirmDeleteModal :: ConfirmDeleteModalState
     }
 
 type Slots =
     ( moneyItem :: forall query. H.Slot query MoneyItem.Output Int
     , button :: forall query. H.Slot query Button.Output Int
     , createItem :: forall query. H.Slot query CreateMoneyItem.Output Int
+    , modal :: forall query. H.Slot query Modal.Output Int
     )
 
 _moneyItem = Proxy :: Proxy "moneyItem"
@@ -75,6 +82,8 @@ _moneyItem = Proxy :: Proxy "moneyItem"
 _createItem = Proxy :: Proxy "createItem"
 
 _button = Proxy :: Proxy "button"
+
+_modal = Proxy :: Proxy "modal"
 
 app :: forall q o m. MonadStore Store.Action Store.Store m => ManageMoneyItems m => ManageCurrencies m => MonadEffect m => H.Component q Unit o m
 app = connect selectMoneyItems $ H.mkComponent
@@ -90,27 +99,31 @@ app = connect selectMoneyItems $ H.mkComponent
     initialState { context: moneyItems } =
         { isCreating: false
         , isInitialized: false
-        , moneyItems }
+        , moneyItems
+        , confirmDeleteModal: Hidden }
     handleAction :: WAction -> H.HalogenM State WAction Slots o m Unit
     handleAction = case _ of
        Initialize -> do
-            liftEffect $ log "fetching"
             moneyItems <- getMoneyItems unit --maybe get rid of parameter
             updateStore $ SetMoneyItems $ fromMaybe moneyItems
             currencies <- getCurrencies unit -- try do in parallel
             updateStore $ SetCurrencies $ fromMaybe currencies
        Receive { context: moneyItems } -> do
             H.modify_ _ { moneyItems = moneyItems }
-       HandleMoneyItemOutput { data: MoneyItem.ConfirmedUpdate item, id } -> do
+       HandleMoneyItemUpdate { item, id } -> do
             let newItem = { id, name: item.name, currencyId: item.currencyId, amount: item.amount }
             result <- updateMoneyItem newItem
             updateStore $ UpdateMoneyItem newItem -- todo add failure handling
             pure unit
-       HandleMoneyItemOutput { data: MoneyItem.ClickedDelete, id } -> do
-            --send request, if successful remove element from array, else raise notification
-            result <- deleteMoneyItem id
-            updateStore $ DeleteMoneyItem id -- todo add failure handling
-            pure unit
+       ShowConfirmDeleteModal id -> do
+            H.modify_ _ { confirmDeleteModal = Visible id }
+       HandleDeleteModalClose closeResult id -> do
+            case closeResult of
+                Modal.Confirmed -> do
+                    result <- deleteMoneyItem id
+                    updateStore $ DeleteMoneyItem id -- todo add failure handling
+                _ -> pure unit
+            H.modify_ _ { confirmDeleteModal = Hidden }
        HandleAddNewButtonOutput _ -> do
             H.modify_ _ { isCreating = true }
        HandleNewItemOutput output -> case output of
@@ -125,20 +138,27 @@ app = connect selectMoneyItems $ H.mkComponent
             pure unit
 
     render :: State -> H.ComponentHTML WAction Slots m
-    render { isCreating, isInitialized, moneyItems } =
+    render { isCreating, isInitialized, moneyItems, confirmDeleteModal } =
         HH.div []
             [ renderMoneyItems moneyItems
             , whenElem isCreating newItem
             , whenElem (not isCreating) addNewButton
+            , renderConfirmDeleteModal
             ]
         where
             renderMoneyItem :: MoneyItemWithId -> _
             renderMoneyItem item = HH.slot _moneyItem item.id MoneyItem.moneyItem
                 { name: item.name, currencyId: item.currencyId, amount: item.amount }
-                (\outputData -> HandleMoneyItemOutput { data: outputData, id: item.id })
+                (\outputData -> case outputData of
+                    MoneyItem.ConfirmedUpdate state -> HandleMoneyItemUpdate { item: state, id: item.id }
+                    MoneyItem.ClickedDelete -> ShowConfirmDeleteModal item.id)
             renderMoneyItems :: RemoteData String (Array MoneyItemWithId) -> _
             renderMoneyItems = case _ of
                 Success arr -> HH.div_ $ map renderMoneyItem arr
                 _ -> HH.text "nothing"
             newItem _ = HH.slot _createItem 0 CreateMoneyItem.createMoneyItem unit HandleNewItemOutput
             addNewButton _ = HH.slot _button 0 Button.button { text: "Add new" } HandleAddNewButtonOutput
+            renderConfirmDeleteModal = case confirmDeleteModal of
+                Hidden -> HH.text ""
+                Visible id -> HH.slot _modal 0 Modal.modal { title: "Confirm", text: "Are you sure?" }
+                    (\modalResult -> HandleDeleteModalClose modalResult id)

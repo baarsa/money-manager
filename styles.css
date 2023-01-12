@@ -1,0 +1,20 @@
+.modal {
+    background-color: white;
+    border: 1px solid brown;
+    padding: 24px 48px;
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+}
+
+.modal-backdrop {
+    position: fixed;
+    opacity: .5;
+    background-color: black;
+    left: 0;
+    top: 0;
+    height: 100%;
+    width: 100%;
+    z-index: 1;
+}
