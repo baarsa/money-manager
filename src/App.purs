@@ -27,12 +27,14 @@ import Network.RemoteData (_Success)
 import HTML.Utils (maybeElem)
 import Effect.Console (log)
 import Effect.Class (class MonadEffect, liftEffect)
+import Effect.Aff.Class (class MonadAff)
 import Type.Proxy (Proxy)
 import Type.Proxy (Proxy(..))
 import Component.MoneyItem as MoneyItem
 import Component.CreateMoneyItem as CreateMoneyItem
 import Component.Button as Button
 import Component.Modal as Modal
+import Component.Notifications as Notifications
 import Data.Array (mapWithIndex)
 import HTML.Utils (whenElem)
 import Store as Store
@@ -63,6 +65,7 @@ type Slots =
     , button :: forall query. H.Slot query Button.Output Int
     , createItem :: forall query. H.Slot query CreateMoneyItem.Output Int
     , modal :: forall query. H.Slot query Modal.Output Int
+    , notifications :: H.Slot Notifications.Query Unit Unit
     )
 
 _moneyItem = Proxy :: Proxy "moneyItem"
@@ -73,7 +76,9 @@ _button = Proxy :: Proxy "button"
 
 _modal = Proxy :: Proxy "modal"
 
-app :: forall q o m. MonadStore Store.Action Store.Store m => ManageMoneyItems m => ManageCurrencies m => MonadEffect m => H.Component q Unit o m
+_notifications = Proxy :: Proxy "notifications"
+
+app :: forall q o m. MonadStore Store.Action Store.Store m => ManageMoneyItems m => ManageCurrencies m => MonadAff m => H.Component q Unit o m
 app = connect selectMoneyItems $ H.mkComponent
     { initialState
     , render
@@ -114,6 +119,7 @@ app = connect selectMoneyItems $ H.mkComponent
                 _ -> pure unit
             H.modify_ _ { confirmDeleteModal = Hidden }
        HandleAddNewButtonOutput _ -> do
+            H.tell _notifications unit $ Notifications.PushNotification { level: Notifications.Warning, message: "Just saying" }
             H.modify_ _ { isCreating = true }
        ShowConfirmAddModal item -> do
            H.modify_ _ { confirmAddModal = Visible item }
@@ -139,6 +145,7 @@ app = connect selectMoneyItems $ H.mkComponent
             , whenElem (not isCreating) addNewButton
             , renderConfirmDeleteModal
             , renderConfirmAddModal
+            , HH.slot_ _notifications unit Notifications.notifications unit
             ]
         where
             renderMoneyItem :: MoneyItemWithId -> _
