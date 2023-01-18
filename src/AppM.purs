@@ -22,6 +22,7 @@ import Data.MoneyItem (moneyItemsWithIdCodec)
 import Data.Currency (currenciesCodec)
 import Capability.MoneyItem (class ManageMoneyItems)
 import Capability.Currency (class ManageCurrencies)
+import Data.Either
 
 newtype AppM a = AppM (StoreT Action Store Aff a)
 
@@ -55,8 +56,11 @@ instance ManageMoneyItems AppM where
         mbJson <- mkRequest { endpoint: MoneyItem moneyItem.id, method }
         map (map _.moneyItem)
             $ decode (CAR.object "MoneyItem" { moneyItem: moneyItemWithIdCodec }) mbJson
-    deleteMoneyItem moneyItemId =
-        void $ mkRequest { endpoint: MoneyItem moneyItemId, method: Delete }
+    deleteMoneyItem moneyItemId = do
+        mbResponse <- mkRequest { endpoint: MoneyItem moneyItemId, method: Delete }
+        pure $ case mbResponse of
+            Nothing -> Left "Delete failed"
+            Just _ -> Right unit
 
 instance ManageCurrencies AppM where
     getCurrencies _ =

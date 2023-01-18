@@ -16,6 +16,9 @@ import Data.Codec.Argonaut as CA
 import Store (Action, Store)
 import Halogen.Store.Monad (class MonadStore, getStore, updateStore)
 import Data.Codec.Argonaut (JsonCodec, printJsonDecodeError)
+import Effect.Console
+import Effect.Class
+import Affjax.StatusCode
 
 mkRequest
     :: forall m
@@ -26,7 +29,9 @@ mkRequest
 mkRequest opts = do
     { baseUrl } <- getStore
     response <- liftAff $ request $ defaultRequest baseUrl opts
-    pure $ hush $ rmap _.body response
+    case response of
+        Left err -> pure Nothing
+        Right { status, body } -> pure $ if status == (StatusCode 200) then (Just body) else Nothing
 
 decode :: forall m a. Monad m => JsonCodec a -> Maybe Json -> m (Maybe a)
 decode _ Nothing = pure Nothing
