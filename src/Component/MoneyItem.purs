@@ -40,10 +40,13 @@ type Input = { name :: String
                      , currencyId :: Int
                      , amount :: Int }
 
+data Query a = ResetState a
+
 data Output = ConfirmedUpdate Input | ClickedDelete
 
 type State = {
     item :: Input,
+    initialItemState :: Input,
     mode :: ComponentMode
 }
 
@@ -65,15 +68,16 @@ _button = Proxy :: Proxy "button"
 
 _editMoneyItem = Proxy :: Proxy "editMoneyItem"
 
-moneyItem :: forall q m. MonadStore Store.Action Store.Store m => H.Component q Input Output m
+moneyItem :: forall m. MonadStore Store.Action Store.Store m => H.Component Query Input Output m
 moneyItem =
     H.mkComponent
         { initialState
         , render
-        , eval: H.mkEval $ H.defaultEval { handleAction = handleAction, initialize = Just Initialize, receive = Just <<< Receive }
+        , eval: H.mkEval $ H.defaultEval { handleAction = handleAction, handleQuery = handleQuery,
+            initialize = Just Initialize, receive = Just <<< Receive }
         }
     where
-    initialState i = { item: i, mode: View }
+    initialState i = { item: i, initialItemState: i, mode: View }
     handleAction :: forall slots. Action -> H.HalogenM State Action slots Output m Unit
     handleAction = case _ of
         Receive item -> do
@@ -92,6 +96,11 @@ moneyItem =
             H.modify_ _ { item = item }
         _ -> do
             pure unit
+    handleQuery :: forall slots a. (Query a) ->  H.HalogenM State Action slots Output m (Maybe a)
+    handleQuery (ResetState a) = do
+        { initialItemState } <- H.get
+        H.modify_ _ { item = initialItemState }
+        pure Nothing
     render :: State -> H.ComponentHTML Action Slots m
     render { item, mode } =
         HH.div

@@ -64,14 +64,18 @@ notifications =
         { notifications } <- H.get
         H.modify_ _ { notifications = snoc notifications newItem }
         _ <- H.subscribe =<< (timer $ RemoveNotification id)
-        -- schedule removal
         pure Nothing
     render :: State -> H.ComponentHTML Action () m
     render { notifications } =
         HH.div [ cssClass "notifications" ] $ map renderNotification notifications
         where
         renderNotification { id, level, message } =
-            HH.div [ cssClass "notification" ] [ HH.text message ]
+            HH.div [ notificationClass ] [ HH.text message ]
+            where
+            notificationClass = cssClass $ case level of
+                Error -> "notification notification-error"
+                Warning -> "notification notification-warning"
+                Success -> "notification notification-success"
     timer :: forall m a. MonadAff m => a -> m (HS.Emitter a)
     timer val = do
         { emitter, listener } <- H.liftEffect HS.create

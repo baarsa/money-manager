@@ -61,7 +61,7 @@ type State =
     }
 
 type Slots =
-    ( moneyItem :: forall query. H.Slot query MoneyItem.Output Int
+    ( moneyItem :: H.Slot MoneyItem.Query MoneyItem.Output Int
     , button :: forall query. H.Slot query Button.Output Int
     , createItem :: forall query. H.Slot query CreateMoneyItem.Output Int
     , modal :: forall query. H.Slot query Modal.Output Int
@@ -107,7 +107,13 @@ app = connect selectMoneyItems $ H.mkComponent
        HandleMoneyItemUpdate { item, id } -> do
             let newItem = { id, name: item.name, currencyId: item.currencyId, amount: item.amount }
             result <- updateMoneyItem newItem
-            updateStore $ UpdateMoneyItem newItem -- todo add failure handling
+            case result of
+                Just updatedItem -> do
+                    updateStore $ UpdateMoneyItem newItem
+                    showSuccessNotification "Item updated successfully"
+                Nothing -> do
+                    showErrorNotification "Failed to update item"
+                    H.tell _moneyItem id $ MoneyItem.ResetState
             pure unit
        ShowConfirmDeleteModal id -> do
             H.modify_ _ { confirmDeleteModal = Visible id }
@@ -136,7 +142,8 @@ app = connect selectMoneyItems $ H.mkComponent
        HandleNewItemCancel -> H.modify_ _ { isCreating = false }
        _ -> do
             pure unit
-
+    showErrorNotification text = H.tell _notifications unit $ Notifications.PushNotification { level: Notifications.Error, message: text }
+    showSuccessNotification text = H.tell _notifications unit $ Notifications.PushNotification { level: Notifications.Success, message: text }
     render :: State -> H.ComponentHTML WAction Slots m
     render { isCreating, isInitialized, moneyItems, confirmDeleteModal, confirmAddModal } =
         HH.div []

@@ -33,3 +33,13 @@
     padding: 8px;
     background: beige;
 }
+
+.notification-error {
+    background: red;
+}
+.notification-warning {
+    background: yellow;
+}
+.notification-success {
+    background: green;
+}
