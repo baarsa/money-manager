@@ -129,7 +129,6 @@ app = connect selectMoneyItems $ H.mkComponent
                 _ -> pure unit
             H.modify_ _ { confirmDeleteModal = Hidden }
        HandleAddNewButtonOutput _ -> do
-            H.tell _notifications unit $ Notifications.PushNotification { level: Notifications.Warning, message: "Just saying" }
             H.modify_ _ { isCreating = true }
        ShowConfirmAddModal item -> do
            H.modify_ _ { confirmAddModal = Visible item }
@@ -139,13 +138,11 @@ app = connect selectMoneyItems $ H.mkComponent
                     result <- createMoneyItem item
                     case result of
                         Just newItem -> updateStore $ AddMoneyItem newItem
-                        _ -> pure unit -- show error
+                        _ -> showErrorNotification "Failed to create item"
                     H.modify_ _ { isCreating = false }
                 _ -> pure unit
             H.modify_ _ { confirmAddModal = Hidden }
        HandleNewItemCancel -> H.modify_ _ { isCreating = false }
-       _ -> do
-            pure unit
     showErrorNotification text = H.tell _notifications unit $ Notifications.PushNotification { level: Notifications.Error, message: text }
     showSuccessNotification text = H.tell _notifications unit $ Notifications.PushNotification { level: Notifications.Success, message: text }
     render :: State -> H.ComponentHTML WAction Slots m

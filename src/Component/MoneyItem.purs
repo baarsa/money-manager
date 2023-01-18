@@ -85,10 +85,8 @@ moneyItem =
         HandleEditButton _ -> do
             H.modify_ _ { mode = Edit }
         HandleConfirmButton _ -> do
-            -- send output with current state
             { item: currentItem } <- H.get
             H.raise $ ConfirmedUpdate currentItem
-            -- if success do nothing else show fail notification (later)
             H.modify_ _ { mode = View }
         HandleDeleteButton _ -> do
             H.raise ClickedDelete
