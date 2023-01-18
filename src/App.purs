@@ -38,6 +38,7 @@ import Component.Notifications as Notifications
 import Data.Array (mapWithIndex)
 import HTML.Utils (whenElem)
 import Store as Store
+import Data.Either
 
 data WAction
     = Initialize
@@ -121,7 +122,10 @@ app = connect selectMoneyItems $ H.mkComponent
             case closeResult of
                 Modal.Confirmed -> do
                     result <- deleteMoneyItem id
-                    updateStore $ DeleteMoneyItem id -- todo add failure handling
+                    H.liftEffect $ log $ show result
+                    case result of
+                        Left message -> showErrorNotification message
+                        _ -> updateStore $ DeleteMoneyItem id
                 _ -> pure unit
             H.modify_ _ { confirmDeleteModal = Hidden }
        HandleAddNewButtonOutput _ -> do
