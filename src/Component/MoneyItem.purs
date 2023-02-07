@@ -32,6 +32,7 @@ import Prim.Row
 import HTML.Utils (whenElem)
 import Component.EditMoneyItem as EditMoneyItem
 import Component.EditMoneyItem
+import HTML.Utils (cssClass)
 
 -- state: item data without id; mode: view | edit;
 -- output: on save (moneyItem), on delete ()
@@ -102,11 +103,13 @@ moneyItem =
     render :: State -> H.ComponentHTML Action Slots m
     render { item, mode } =
         HH.div
-         []
+         [ cssClass "money-item" ]
          [ whenElem (mode == View) viewMoneyItem
          , whenElem (mode == Edit) editMoneyItem
-         , button
-         , deleteButton
+         , HH.div [ cssClass "money-item-buttons" ]
+            [ button
+            , deleteButton
+            ]
          ]
         where
             button = case mode of
@@ -115,8 +118,11 @@ moneyItem =
             deleteButton = HH.slot _button 2 Button.button { text: "Delete" } HandleDeleteButton
             viewMoneyItem _ = HH.div
                 []
-                [ HH.text item.name
-                , HH.text $ toStringAs decimal item.amount
-                , HH.slot _currencyControl 0 CurrencyControl.currencyControl { mode: View, currencyId: item.currencyId  } NoAction ]
+                [ HH.h2 [] [ HH.text item.name]
+                , HH.div [ cssClass "money-item-bottom" ]
+                    [ HH.text $ toStringAs decimal item.amount
+                    , HH.slot _currencyControl 0 CurrencyControl.currencyControl { mode: View, currencyId: item.currencyId  } NoAction
+                    ]
+                ]
             editMoneyItem _ = HH.slot _editMoneyItem 0 EditMoneyItem.editMoneyItem
              { name: item.name, currencyId: item.currencyId, amount: item.amount } HandleEditMoneyItemInput

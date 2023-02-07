@@ -39,6 +39,8 @@ import Data.Array (mapWithIndex)
 import HTML.Utils (whenElem)
 import Store as Store
 import Data.Either
+import HTML.Utils (cssClass)
+import Data.Array (concat)
 
 data WAction
     = Initialize
@@ -148,9 +150,9 @@ app = connect selectMoneyItems $ H.mkComponent
     render :: State -> H.ComponentHTML WAction Slots m
     render { isCreating, isInitialized, moneyItems, confirmDeleteModal, confirmAddModal } =
         HH.div []
-            [ renderMoneyItems moneyItems
-            , whenElem isCreating newItem
-            , whenElem (not isCreating) addNewButton
+            [ HH.div [ cssClass "items-container" ] $ concat [(renderMoneyItems moneyItems),
+                [whenElem isCreating newItem
+                , whenElem (not isCreating) addNewButton]]
             , renderConfirmDeleteModal
             , renderConfirmAddModal
             , HH.slot_ _notifications unit Notifications.notifications unit
@@ -164,8 +166,8 @@ app = connect selectMoneyItems $ H.mkComponent
                     MoneyItem.ClickedDelete -> ShowConfirmDeleteModal item.id)
             renderMoneyItems :: RemoteData String (Array MoneyItemWithId) -> _
             renderMoneyItems = case _ of
-                Success arr -> HH.div_ $ map renderMoneyItem arr
-                _ -> HH.text "nothing"
+                Success arr -> map renderMoneyItem arr
+                _ -> []
             newItem _ = HH.slot _createItem 0 CreateMoneyItem.createMoneyItem unit (\output -> case output of
                 CreateMoneyItem.Confirmed state -> ShowConfirmAddModal state
                 CreateMoneyItem.Cancelled -> HandleNewItemCancel)

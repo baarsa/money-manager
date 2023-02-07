@@ -7,7 +7,7 @@ import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
 import Halogen.HTML.Properties as H
 import Component.Button as Button
-import HTML.Utils
+import HTML.Utils (cssClass)
 
 type Input = { title :: String, text :: String }
 
