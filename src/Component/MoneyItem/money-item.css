@@ -1,0 +1,16 @@
+.money-item {
+    width: 180px;
+    padding: 12px;
+    border: 1px solid black;
+    border-radius: 8px;
+}
+
+.money-item-bottom {
+    display: flex;
+    gap: 8px;
+}
+
+.money-item-buttons {
+    margin-top: 16px;
+    display: flex;
+}
