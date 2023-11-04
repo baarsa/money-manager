@@ -3,17 +3,9 @@ module Store where
 import Prelude
 import Data.Currency (Currency)
 import Data.MoneyItem (MoneyItemWithId)
-import Halogen.Store.Select (Selector)
-import Halogen.Store.Select (selectEq)
-import Data.Maybe (Maybe)
-import Data.Maybe (Maybe(..))
+import Halogen.Store.Select (Selector, selectEq)
 import Api.Request (BaseURL)
-import Network.RemoteData (RemoteData)
 import Network.RemoteData (RemoteData(..))
-import Halogen.Store.Select (select)
-import Data.Array (updateAt)
-import Data.Array (findIndex)
-import Data.Array (deleteAt)
 import Data.Array
 
 type Store =
@@ -28,44 +20,28 @@ data Action = SetMoneyItems (RemoteData String (Array MoneyItemWithId))
     | DeleteMoneyItem Int
     | AddMoneyItem MoneyItemWithId
 
-getMbUpdatedArr arr item = do
-    ind <- findIndex (\item2 -> item2.id == item.id) arr
-    updateAt ind item arr
-
-updateArr arr item = case mbUpdatedArr of
-    Just updatedArr -> updatedArr
-    _ -> arr
-    where mbUpdatedArr = getMbUpdatedArr arr item
+updateArray :: MoneyItemWithId -> Array MoneyItemWithId -> Array MoneyItemWithId
+updateArray newItem arr = map updateItem arr
+    where updateItem :: MoneyItemWithId -> MoneyItemWithId
+          updateItem oldItem = if oldItem.id == newItem.id then newItem else oldItem
 
 reduce :: Store -> Action -> Store
 reduce store = case _ of
     SetMoneyItems items -> store { moneyItems = items }
     SetCurrencies items -> store { currencies = items }
-    UpdateMoneyItem item -> case store.moneyItems of
-        Success arr -> store { moneyItems = Success $ updateArr arr item }
-        _ -> store
-    DeleteMoneyItem id -> case store.moneyItems of
-        Success arr -> store { moneyItems = Success $ nextArr}
-            where
-            nextArr = case deleteResult of
-                Just arr2 -> arr2
-                _ -> arr
-            deleteResult = do
-                ind <- findIndex (\item -> item.id == id) arr
-                deleteAt ind arr
-        _ -> store
-    AddMoneyItem item -> case store.moneyItems of
-        Success arr -> store { moneyItems = Success $ nextArr }
-            where
-            nextArr = snoc arr item
-        _ -> store
-
-isInitialized :: Store -> Boolean
-isInitialized { moneyItems: Success _, currencies: Success _ } = true
-isInitialized _ = false
+    UpdateMoneyItem item -> store { moneyItems = map (updateArray item) store.moneyItems }
+    DeleteMoneyItem id -> store { moneyItems = map deleteItem store.moneyItems }
+        where deleteItem :: Array MoneyItemWithId -> Array MoneyItemWithId
+              deleteItem = filter $ (notEq id) <<< _.id
+    AddMoneyItem item -> store { moneyItems = map addItem store.moneyItems }
+        where addItem :: Array MoneyItemWithId -> Array MoneyItemWithId
+              addItem arr = snoc arr item
 
 selectIsInitialized :: Selector Store Boolean
 selectIsInitialized = selectEq isInitialized
+    where isInitialized :: Store -> Boolean
+          isInitialized { moneyItems: Success _, currencies: Success _ } = true
+          isInitialized _ = false
 
 selectMoneyItems :: Selector Store (RemoteData String (Array MoneyItemWithId))
 selectMoneyItems = selectEq _.moneyItems
