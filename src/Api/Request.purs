@@ -1,17 +1,15 @@
 module Api.Request where
 
 import Prelude
-import Data.Maybe (Maybe)
+import Data.Maybe (Maybe(..))
 import Data.Argonaut.Core (Json)
-import Api.Endpoint (Endpoint)
+import Api.Endpoint (Endpoint, endpointCodec)
 import Affjax
 import Affjax.RequestBody as RB
 import Affjax.ResponseFormat as RF
 import Data.Tuple (Tuple(..))
 import Data.HTTP.Method (Method(..))
-import Data.Maybe (Maybe(..))
 import Data.Either (Either(..))
-import Api.Endpoint (endpointCodec)
 import Routing.Duplex (print)
 
 newtype BaseURL = BaseURL String
@@ -32,7 +30,7 @@ defaultRequest (BaseURL baseUrl) { endpoint, method } =
      { method: Left requestMethod
       , url: baseUrl <> print endpointCodec endpoint
       , headers: []
-      , content: RB.json <$> body
+      , content: map RB.json body
       , username: Nothing
       , password: Nothing
       , timeout: Nothing

@@ -2,9 +2,9 @@ module Api.Endpoint where
 
 import Prelude
 import Data.Generic.Rep (class Generic)
-import Routing.Duplex (RouteDuplex', int, optional, prefix, root, segment, string)
+import Routing.Duplex (RouteDuplex', int, prefix, root, segment)
 import Routing.Duplex.Generic (noArgs, sum)
-import Routing.Duplex.Generic.Syntax ((/), (?))
+import Routing.Duplex.Generic.Syntax ((/))
 
 data Endpoint
     = MoneyItem Int
