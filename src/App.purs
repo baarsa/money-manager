@@ -101,9 +101,9 @@ app = connect selectMoneyItems $ H.mkComponent
     handleAction :: WAction -> H.HalogenM State WAction Slots o m Unit
     handleAction = case _ of
        Initialize -> do
-            moneyItems <- getMoneyItems unit --maybe get rid of parameter
+            moneyItems <- getMoneyItems
             updateStore $ SetMoneyItems $ fromMaybe moneyItems
-            currencies <- getCurrencies unit -- try do in parallel
+            currencies <- getCurrencies -- try do in parallel
             updateStore $ SetCurrencies $ fromMaybe currencies
        Receive { context: moneyItems } -> do
             H.modify_ _ { moneyItems = moneyItems }

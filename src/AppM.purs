@@ -40,28 +40,28 @@ derive newtype instance monadAffAppM :: MonadAff AppM
 derive newtype instance monadStoreAppM :: MonadStore Action Store AppM
 
 instance ManageMoneyItems AppM where
-    getMoneyItems _ =
-        mkRequest { endpoint: MoneyItems, method: Get } >>= decode moneyItemsWithIdCodec
+    getMoneyItems =
+        map (decode moneyItemsWithIdCodec) $ mkRequest { endpoint: MoneyItems, method: Get }
     createMoneyItem moneyItem = do
         let
             codec = CAR.object "MoneyItem" { moneyItem: moneyItemCodec }
             method = Put $ Just $ Codec.encode codec { moneyItem }
         mbJson <- mkRequest { endpoint: MoneyItems, method }
-        map (map _.moneyItem)
-            $ decode (CAR.object "MoneyItem" { moneyItem: moneyItemWithIdCodec }) mbJson
+        pure do
+            decoded <- decode (CAR.object "MoneyItemWithId" { moneyItem: moneyItemWithIdCodec }) mbJson
+            pure decoded.moneyItem
     updateMoneyItem moneyItem = do
         let
             codec = CAR.object "MoneyItem" { moneyItem: moneyItemWithIdCodec }
             method = Post $ Just $ Codec.encode codec { moneyItem }
         mbJson <- mkRequest { endpoint: MoneyItem moneyItem.id, method }
-        map (map _.moneyItem)
-            $ decode (CAR.object "MoneyItem" { moneyItem: moneyItemWithIdCodec }) mbJson
+        pure do
+            decoded <- decode (CAR.object "MoneyItem" { moneyItem: moneyItemWithIdCodec }) mbJson
+            pure decoded.moneyItem
     deleteMoneyItem moneyItemId = do
         mbResponse <- mkRequest { endpoint: MoneyItem moneyItemId, method: Delete }
-        pure $ case mbResponse of
-            Nothing -> Left "Delete failed"
-            Just _ -> Right unit
+        pure $ map (const unit) $ note "Delete failed" mbResponse
 
 instance ManageCurrencies AppM where
-    getCurrencies _ =
-        mkRequest { endpoint: Currencies, method: Get } >>= decode currenciesCodec
+    getCurrencies =
+        map (decode currenciesCodec) $ mkRequest { endpoint: Currencies, method: Get }

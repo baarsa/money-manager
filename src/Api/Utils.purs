@@ -27,8 +27,8 @@ mkRequest opts = do
         Left _ -> Nothing
         Right { status, body } -> if status == (StatusCode 200) then Just body else Nothing
 
-decode :: forall m a. Monad m => JsonCodec a -> Maybe Json -> m (Maybe a)
-decode codec mbJson = pure do
+decode :: forall a. JsonCodec a -> Maybe Json -> Maybe a
+decode codec mbJson = do
             json <- mbJson
             decoded <- hush $ CA.decode codec json
             pure decoded
