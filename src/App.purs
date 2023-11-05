@@ -6,43 +6,28 @@ import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
 import Halogen.HTML.Properties as H
 import Halogen.Subscription as HS
+import Halogen.Store.Monad (class MonadStore, updateStore)
+import Halogen.Store.Connect (Connected, connect)
+import Capability.MoneyItem (class ManageMoneyItems, getMoneyItems, updateMoneyItem, deleteMoneyItem, createMoneyItem)
+import Capability.Currency (class ManageCurrencies, getCurrencies)
+import Component.Button as Button
+import Component.CreateMoneyItem as CreateMoneyItem
+import Component.Notifications as Notifications
+import Component.MoneyItem as MoneyItem
+import Component.Modal as Modal
+import Data.Array (concat)
+import Data.Either (Either(..))
 import Data.Maybe (Maybe(..))
-import Halogen.Store.Connect (Connected)
-import Halogen.Store.Connect (connect)
-import Store (selectIsInitialized, Action, Store)
-import Capability.MoneyItem (getMoneyItems, updateMoneyItem, deleteMoneyItem, createMoneyItem)
-import Capability.Currency (getCurrencies)
-import Data.MoneyItem (MoneyItem)
-import AppM (AppM)
-import Capability.MoneyItem (class ManageMoneyItems)
-import Capability.Currency (class ManageCurrencies)
-import Halogen.Store.Monad (class MonadStore)
-import Halogen.Store.Monad (updateStore)
-import Store (selectMoneyItems)
 import Data.MoneyItem (MoneyItemWithId)
-import Store (Action(..))
+import Store (Action(..), Store, selectMoneyItems)
 import Network.RemoteData (RemoteData(..), fromMaybe)
-import Data.Lens.Fold (preview)
-import Network.RemoteData (_Success)
-import HTML.Utils (maybeElem)
+import HTML.Utils (elemsByCondition, cssClass)
 import Effect.Console (log)
 import Effect.Class (class MonadEffect, liftEffect)
 import Effect.Aff.Class (class MonadAff)
-import Type.Proxy (Proxy)
 import Type.Proxy (Proxy(..))
-import Component.MoneyItem as MoneyItem
-import Component.CreateMoneyItem as CreateMoneyItem
-import Component.Button as Button
-import Component.Modal as Modal
-import Component.Notifications as Notifications
-import Data.Array (mapWithIndex)
-import HTML.Utils (whenElem)
-import Store as Store
-import Data.Either
-import HTML.Utils (cssClass)
-import Data.Array (concat)
 
-data WAction
+data AppAction
     = Initialize
     | Receive (Connected (RemoteData String (Array MoneyItemWithId)) Unit)
     | HandleMoneyItemUpdate { item :: MoneyItem.Input, id :: Int }
@@ -81,7 +66,7 @@ _modal = Proxy :: Proxy "modal"
 
 _notifications = Proxy :: Proxy "notifications"
 
-app :: forall q o m. MonadStore Store.Action Store.Store m => ManageMoneyItems m => ManageCurrencies m => MonadAff m => H.Component q Unit o m
+app :: forall q o m. MonadStore Action Store m => ManageMoneyItems m => ManageCurrencies m => MonadAff m => H.Component q Unit o m
 app = connect selectMoneyItems $ H.mkComponent
     { initialState
     , render
@@ -98,7 +83,7 @@ app = connect selectMoneyItems $ H.mkComponent
         , moneyItems
         , confirmDeleteModal: Hidden
         , confirmAddModal: Hidden }
-    handleAction :: WAction -> H.HalogenM State WAction Slots o m Unit
+    handleAction :: AppAction -> H.HalogenM State AppAction Slots o m Unit
     handleAction = case _ of
        Initialize -> do
             moneyItems <- getMoneyItems
@@ -147,12 +132,11 @@ app = connect selectMoneyItems $ H.mkComponent
        HandleNewItemCancel -> H.modify_ _ { isCreating = false }
     showErrorNotification text = H.tell _notifications unit $ Notifications.PushNotification { level: Notifications.Error, message: text }
     showSuccessNotification text = H.tell _notifications unit $ Notifications.PushNotification { level: Notifications.Success, message: text }
-    render :: State -> H.ComponentHTML WAction Slots m
+    render :: State -> H.ComponentHTML AppAction Slots m
     render { isCreating, isInitialized, moneyItems, confirmDeleteModal, confirmAddModal } =
         HH.div []
             [ HH.div [ cssClass "items-container" ] $ concat [(renderMoneyItems moneyItems),
-                [whenElem isCreating newItem
-                , whenElem (not isCreating) addNewButton]]
+                [elemsByCondition isCreating newItem addNewButton]]
             , renderConfirmDeleteModal
             , renderConfirmAddModal
             , HH.slot_ _notifications unit Notifications.notifications unit
@@ -168,10 +152,10 @@ app = connect selectMoneyItems $ H.mkComponent
             renderMoneyItems = case _ of
                 Success arr -> map renderMoneyItem arr
                 _ -> []
-            newItem _ = HH.slot _createItem 0 CreateMoneyItem.createMoneyItem unit (\output -> case output of
+            newItem = HH.slot _createItem 0 CreateMoneyItem.createMoneyItem unit (\output -> case output of
                 CreateMoneyItem.Confirmed state -> ShowConfirmAddModal state
                 CreateMoneyItem.Cancelled -> HandleNewItemCancel)
-            addNewButton _ = HH.slot _button 0 Button.button { text: "Add new" } HandleAddNewButtonOutput
+            addNewButton = HH.slot _button 0 Button.button { text: "Add new" } HandleAddNewButtonOutput
             renderConfirmDeleteModal = case confirmDeleteModal of
                 Hidden -> HH.text ""
                 Visible id -> HH.slot _modal 0 Modal.modal { title: "Confirm", text: "Are you sure you want to delte this item?" }
