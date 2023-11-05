@@ -20,9 +20,11 @@ data Action = SetMoneyItems (RemoteData String (Array MoneyItemWithId))
     | DeleteMoneyItem Int
     | AddMoneyItem MoneyItemWithId
 
-updateArray :: MoneyItemWithId -> Array MoneyItemWithId -> Array MoneyItemWithId
+type WithId r = { id :: Int | r }
+
+updateArray :: forall r. (WithId r) -> Array (WithId r) -> Array (WithId r)
 updateArray newItem arr = map updateItem arr
-    where updateItem :: MoneyItemWithId -> MoneyItemWithId
+    where updateItem :: (WithId r) -> (WithId r)
           updateItem oldItem = if oldItem.id == newItem.id then newItem else oldItem
 
 reduce :: Store -> Action -> Store
