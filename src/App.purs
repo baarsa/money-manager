@@ -15,6 +15,7 @@ import Component.CreateMoneyItem as CreateMoneyItem
 import Component.Notifications as Notifications
 import Component.MoneyItem as MoneyItem
 import Component.Modal as Modal
+import Component.Spinner as Spinner
 import Data.Array (concat)
 import Data.Either (Either(..))
 import Data.Maybe (Maybe(..))
@@ -38,14 +39,14 @@ data AppAction
     | ShowConfirmAddModal CreateMoneyItem.State
     | HandleAddModalClose Modal.Output CreateMoneyItem.State
 
-data ModalState a = Hidden | Visible a
+data ModalState a = Hidden | Visible a -- a - тип данных, необходимых при обработке подтверждения действия
 
 type State =
     { isCreating :: Boolean
     , isInitialized :: Boolean
     , moneyItems :: RemoteData String (Array MoneyItemWithId)
-    , confirmDeleteModal :: ModalState Int -- id of the item to delete on confirm
-    , confirmAddModal :: ModalState CreateMoneyItem.State -- item data to add on confirm
+    , confirmDeleteModal :: ModalState Int -- id элемента, для которого запрошено удаление
+    , confirmAddModal :: ModalState CreateMoneyItem.State -- данные элемента, который нужно добавить
     }
 
 type Slots =
@@ -54,6 +55,7 @@ type Slots =
     , createItem :: forall query. H.Slot query CreateMoneyItem.Output Int
     , modal :: forall query. H.Slot query Modal.Output Int
     , notifications :: H.Slot Notifications.Query Unit Unit
+    , spinner :: forall query. H.Slot query Unit Unit
     )
 
 _moneyItem = Proxy :: Proxy "moneyItem"
@@ -65,6 +67,8 @@ _button = Proxy :: Proxy "button"
 _modal = Proxy :: Proxy "modal"
 
 _notifications = Proxy :: Proxy "notifications"
+
+_spinner = Proxy :: Proxy "spinner"
 
 app :: forall q o m. MonadStore Action Store m => ManageMoneyItems m => ManageCurrencies m => MonadAff m => H.Component q Unit o m
 app = connect selectMoneyItems $ H.mkComponent
@@ -86,6 +90,8 @@ app = connect selectMoneyItems $ H.mkComponent
     handleAction :: AppAction -> H.HalogenM State AppAction Slots o m Unit
     handleAction = case _ of
        Initialize -> do
+            updateStore $ SetMoneyItems $ Loading
+            updateStore $ SetCurrencies $ Loading
             moneyItems <- getMoneyItems
             updateStore $ SetMoneyItems $ fromMaybe moneyItems
             currencies <- getCurrencies -- try do in parallel
@@ -134,9 +140,9 @@ app = connect selectMoneyItems $ H.mkComponent
     showSuccessNotification text = H.tell _notifications unit $ Notifications.PushNotification { level: Notifications.Success, message: text }
     render :: State -> H.ComponentHTML AppAction Slots m
     render { isCreating, isInitialized, moneyItems, confirmDeleteModal, confirmAddModal } =
-        HH.div []
-            [ HH.div [ cssClass "items-container" ] $ concat [(renderMoneyItems moneyItems),
-                [elemsByCondition isCreating newItem addNewButton]]
+        HH.div [ cssClass "app-container" ]
+            [ HH.div [ cssClass "items-container" ] $ concat [(renderMoneyItems moneyItems)
+            , [elemsByCondition isCreating newItem addNewButton]]
             , renderConfirmDeleteModal
             , renderConfirmAddModal
             , HH.slot_ _notifications unit Notifications.notifications unit
@@ -151,6 +157,7 @@ app = connect selectMoneyItems $ H.mkComponent
             renderMoneyItems :: RemoteData String (Array MoneyItemWithId) -> _
             renderMoneyItems = case _ of
                 Success arr -> map renderMoneyItem arr
+                Loading -> [HH.slot_ _spinner unit Spinner.spinner unit]
                 _ -> []
             newItem = HH.slot _createItem 0 CreateMoneyItem.createMoneyItem unit (\output -> case output of
                 CreateMoneyItem.Confirmed state -> ShowConfirmAddModal state
@@ -158,7 +165,7 @@ app = connect selectMoneyItems $ H.mkComponent
             addNewButton = HH.slot _button 0 Button.button { text: "Add new" } HandleAddNewButtonOutput
             renderConfirmDeleteModal = case confirmDeleteModal of
                 Hidden -> HH.text ""
-                Visible id -> HH.slot _modal 0 Modal.modal { title: "Confirm", text: "Are you sure you want to delte this item?" }
+                Visible id -> HH.slot _modal 0 Modal.modal { title: "Confirm", text: "Are you sure you want to delete this item?" }
                     (\modalResult -> HandleDeleteModalClose modalResult id)
             renderConfirmAddModal = case confirmAddModal of
                 Hidden -> HH.text ""

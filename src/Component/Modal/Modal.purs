@@ -35,11 +35,12 @@ modal =
     handleAction (HandleConfirmClick _) = H.raise Confirmed
     render :: State -> H.ComponentHTML Action Slots m
     render { title, text } =
-        HH.div [ cssClass "modal-backdrop" ]
-            [ HH.div [ cssClass "modal" ]
+        HH.div_
+            [ HH.div [ cssClass "modal-backdrop" ] []
+            , HH.div [ cssClass "modal" ]
                 [ HH.h2 [] [HH.text title]
                 , HH.div [] [HH.text text]
-                , HH.div []
+                , HH.div [ cssClass "modal-buttons" ]
                     [ HH.slot _button 0 Button.button { text: "OK" } HandleConfirmClick
                     , HH.slot _button 0 Button.button { text: "Cancel" } HandleCloseClick ]
                 ]

@@ -1,25 +1,6 @@
 @import './src/Component/MoneyItem/money-item.css';
-
-.modal {
-    background-color: white;
-    border: 1px solid brown;
-    padding: 24px 48px;
-    position: absolute;
-    left: 50%;
-    top: 50%;
-    transform: translate(-50%, -50%);
-}
-
-.modal-backdrop {
-    position: fixed;
-    opacity: .5;
-    background-color: black;
-    left: 0;
-    top: 0;
-    height: 100%;
-    width: 100%;
-    z-index: 1;
-}
+@import './src/Component/Spinner/spinner.css';
+@import './src/Component/Modal/modal.css';
 
 .notifications {
     position: fixed;
@@ -46,9 +27,19 @@
     background: green;
 }
 
-.items-container {
+.app-container {
     display: flex;
     flex-direction: column;
+    align-items: center;
+    background: linear-gradient(to right, rgb(185, 43, 39), rgb(21, 101, 192));
+}
+
+.items-container {
+    margin-top: 16px;
+    display: flex;
+    align-items: center;
+    flex-direction: column;
     gap: 24px;
-    width: max-content;
+    width: 500px;
+    min-height: 800px;
 }
