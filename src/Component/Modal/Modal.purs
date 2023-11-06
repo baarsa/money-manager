@@ -16,6 +16,7 @@ type State = Input
 data Action = HandleCloseClick Button.Output | HandleConfirmClick Button.Output
 
 data Output = Closed | Confirmed
+derive instance Eq Output
 
 type Slots =
     (  button :: forall q. H.Slot q Button.Output Int

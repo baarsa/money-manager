@@ -22,6 +22,9 @@ data Action = SetMoneyItems (RemoteData String (Array MoneyItemWithId))
 
 type WithId r = { id :: Int | r }
 
+data AppDataState = NotReady | Ready (Array MoneyItemWithId)
+derive instance Eq AppDataState
+
 updateArray :: forall r. (WithId r) -> Array (WithId r) -> Array (WithId r)
 updateArray newItem arr = map updateItem arr
     where updateItem :: (WithId r) -> (WithId r)
@@ -39,14 +42,11 @@ reduce store = case _ of
         where addItem :: Array MoneyItemWithId -> Array MoneyItemWithId
               addItem arr = snoc arr item
 
-selectIsInitialized :: Selector Store Boolean
-selectIsInitialized = selectEq isInitialized
-    where isInitialized :: Store -> Boolean
-          isInitialized { moneyItems: Success _, currencies: Success _ } = true
-          isInitialized _ = false
-
-selectMoneyItems :: Selector Store (RemoteData String (Array MoneyItemWithId))
-selectMoneyItems = selectEq _.moneyItems
+selectAppDataState :: Selector Store AppDataState
+selectAppDataState = selectEq getAppDataState
+    where getAppDataState :: Store -> AppDataState
+          getAppDataState { moneyItems: Success items, currencies: Success _ } = Ready items
+          getAppDataState _ = NotReady
 
 selectCurrencies :: Selector Store (RemoteData String (Array Currency))
 selectCurrencies = selectEq _.currencies
