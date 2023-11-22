@@ -1,7 +1,8 @@
 {
   "scripts": {
-    "start": "concurrently \"pulp --watch build --to ./output/app.js\" \"parcel src/index.html\"",
-    "dev": "concurrently \"spago build --watch\" \"parcel index.html\""
+    "dev": "concurrently \"spago build --watch\" \"parcel index.html\"",
+    "build": "spago build",
+    "start": "parcel index.html"
   },
   "dependencies": {
     "purescript": "^0.15.7",
